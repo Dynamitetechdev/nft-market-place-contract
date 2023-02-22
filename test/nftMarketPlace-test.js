@@ -22,6 +22,7 @@ describe("NFTMarketPlace", () => {
     ourNFT.approve(NFTmarketplace.address, TOKEN_ID);
   });
   const oneEth = ethers.utils.parseEther("1");
+  const twoEth = ethers.utils.parseEther("2");
   describe("list Item", () => {
     it("should listItem and emit an event", async () => {
       const tx = NFTmarketplace.listItem(ourNFT.address, TOKEN_ID, oneEth);
@@ -31,21 +32,42 @@ describe("NFTMarketPlace", () => {
 
   describe("buyItem", () => {
     it("Should successfully buy and the item should be out of the market", async () => {
+      //List Items
       const listTx = await NFTmarketplace.listItem(
         ourNFT.address,
         TOKEN_ID,
         oneEth
       );
       await listTx.wait(1);
+
+      //Update Listing price
+      const updateListingTx = await NFTmarketplace.updateListing(
+        ourNFT.address,
+        TOKEN_ID,
+        twoEth
+      );
+
+      expect(updateListingTx).to.emit(NftMarketplaceContract, "updatedListing");
+      console.log("update Listing");
+
+      //A user buying the listed Item approve by the owner
       const connectedMarketPlace = await NFTmarketplace.connect(user);
       const tx = await connectedMarketPlace.buyItem(ourNFT.address, TOKEN_ID, {
-        value: oneEth,
+        value: twoEth,
       });
       await tx.wait(1);
       expect(tx).to.emit(NftMarketplaceContract, "itemBought");
 
+      // check if seller proceeds is > than 0 after someone purchase our item
       const sellerProceeds = await NFTmarketplace.getProceeds(deployer.address);
       assert(sellerProceeds > 0);
+
+      // Withdraw proceeds
+      const withdrawProceeds = await NFTmarketplace.withdrawProceeds();
+      const newSellerProceeds = await NFTmarketplace.getProceeds(
+        deployer.address
+      );
+      assert(newSellerProceeds == 0);
     });
   });
 });
